@@ -977,6 +977,73 @@ EOS
         EOS
       end
     end
+
+    describe 'with_comment option with double-byte character comment' do
+      mocked_columns_with_comment = [
+        [:id,         :integer, { limit: 8,  comment: 'ID' }],
+        [:active,     :boolean, { limit: 1,  comment: 'Active' }],
+        [:name,       :string,  { limit: 50, comment: 'Name' }],
+        [:notes,      :text,    { limit: 55, comment: '○/△/×' }],
+        [:no_comment, :text,    { limit: 20, comment: nil }]
+      ]
+
+      when_called_with with_comment: 'yes',
+                       with_columns: mocked_columns_with_comment, returns:
+        <<-EOS.strip_heredoc
+        # Schema Info
+        #
+        # Table name: users
+        #
+        #  id(ID)          :integer          not null, primary key
+        #  active(Active)  :boolean          not null
+        #  name(Name)      :string(50)       not null
+        #  notes(○/△/×) :text(55)         not null
+        #  no_comment      :text(20)         not null
+        #
+      EOS
+
+      it 'should get schema info as RDoc' do
+        klass = mock_class(:users,
+                           :id,
+                           [
+                             mock_column(:id, :integer, comment: 'ID'),
+                             mock_column(:name, :string, limit: 50, comment: '○/△/×')
+                           ])
+        expect(AnnotateModels.get_schema_info(klass, AnnotateModels::PREFIX, format_rdoc: true, with_comment: true)).to eql(<<-EOS.strip_heredoc)
+        # #{AnnotateModels::PREFIX}
+        #
+        # Table name: users
+        #
+        # *id(ID)*::         <tt>integer, not null, primary key</tt>
+        # *name(○/△/×)*:: <tt>string(50), not null</tt>
+        #--
+        # #{AnnotateModels::END_MARK}
+        #++
+        EOS
+      end
+
+      it 'should get schema info as Markdown' do
+        klass = mock_class(:users,
+                           :id,
+                           [
+                             mock_column(:id, :integer, comment: 'ID'),
+                             mock_column(:name, :string, limit: 50, comment: '○/△/×')
+                           ])
+        expect(AnnotateModels.get_schema_info(klass, AnnotateModels::PREFIX, format_markdown: true, with_comment: true)).to eql(<<-EOS.strip_heredoc)
+        # #{AnnotateModels::PREFIX}
+        #
+        # Table name: `users`
+        #
+        # ### Columns
+        #
+        # Name                  | Type               | Attributes
+        # --------------------- | ------------------ | ---------------------------
+        # **`id(ID)`**          | `integer`          | `not null, primary key`
+        # **`name(○/△/×)`**  | `string(50)`       | `not null`
+        #
+        EOS
+      end
+    end
   end
 
   describe '#get_model_files' do

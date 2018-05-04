@@ -294,14 +294,16 @@ module AnnotateModels
                    else
                      col.name
                    end
+        space_length = max_size - multibyte_string_length(col_name) + col_name.length
+
         if options[:format_rdoc]
-          info << sprintf("# %-#{max_size}.#{max_size}s<tt>%s</tt>", "*#{col_name}*::", attrs.unshift(col_type).join(", ")).rstrip + "\n"
+          info << sprintf("# %-#{space_length}.#{space_length}s<tt>%s</tt>", "*#{col_name}*::", attrs.unshift(col_type).join(", ")).rstrip + "\n"
         elsif options[:format_markdown]
-          name_remainder = max_size - col_name.length
-          type_remainder = (md_type_allowance - 2) - col_type.length
+          name_remainder = max_size - multibyte_string_length(col_name)
+          type_remainder = (md_type_allowance - 2) - multibyte_string_length(col_type)
           info << (sprintf("# **`%s`**%#{name_remainder}s | `%s`%#{type_remainder}s | `%s`", col_name, " ", col_type, " ", attrs.join(", ").rstrip)).gsub('``', '  ').rstrip + "\n"
         else
-          info << sprintf("#  %-#{max_size}.#{max_size}s:%-#{bare_type_allowance}.#{bare_type_allowance}s %s", col_name, col_type, attrs.join(", ")).rstrip + "\n"
+          info << sprintf("#  %-#{space_length}.#{space_length}s:%-#{bare_type_allowance}.#{bare_type_allowance}s %s", col_name, col_type, attrs.join(", ")).rstrip + "\n"
         end
       end
 
@@ -885,7 +887,7 @@ module AnnotateModels
     def max_schema_info_width(klass, options)
       if with_comments?(klass, options)
         max_size = klass.columns.map do |column|
-          column.name.size + (column.comment ? column.comment.size : 0)
+          column.name.size + (column.comment ? multibyte_string_length(column.comment) : 0)
         end.max || 0
         max_size += 2
       else
@@ -894,6 +896,10 @@ module AnnotateModels
       max_size += options[:format_rdoc] ? 5 : 1
 
       max_size
+    end
+
+    def multibyte_string_length(str)
+      str.to_s.each_char.map{|c| c.bytesize == 1 ? 1 : 2}.inject(&:+)
     end
   end
 
